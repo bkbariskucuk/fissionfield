@@ -1,8 +1,7 @@
-# Serpent Studio v1.4.77.92
+Serpent Studio v1.4.78.93
 
-- Accessibility → Preferences ile aktif girdi güncellemesi ve yazma sonrası bekleme süresi seçilebilir. Varsayılan manuel Geometry; GUI değişiklikleri betiğe yansır.
-- Yazarken doğrulama ve satır karşılaştırması kaynaklı donmalar azaltıldı. Eski doğrulama sonucu yeni düzenlemeyi ezmez.
-- Analiz kaldırma penceresinde kayıtlı koşullar, kısmi çıktılar ve dosya listesi gösterilir. İsteğe bağlı çıktı dosyaları sistem Çöp Kutusuna taşınır.
-- Açık uygulamada seyrek güncelleme kontrolü ve gizliyken gelen bildirimin korunması.
+Telemetry preferences now show the saved sharing state and pending changes, support undo, and report settings write failures. Model sharing still requires explicit Save.
 
-179 ilgili kaynak testi geçti. PySide6; Linux x86_64. Serpent motoru ve nükleer veri kütüphaneleri ayrıca kurulmalıdır.
+Includes twelve editable detector presets with Wiki references and live Preferences with cancellation rollback.
+
+Linux x86_64 AppImage. Download Serpent.Studio.AppImage, make it executable and launch it. Existing projects and settings are preserved.
