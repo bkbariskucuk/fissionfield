@@ -1698,7 +1698,7 @@ class ControlPlaneHandler(http.server.BaseHTTPRequestHandler):
         self.send_header("X-Frame-Options", "DENY")
         self.send_header("Referrer-Policy", "strict-origin-when-cross-origin")
         self.send_header("Strict-Transport-Security", "max-age=31536000; includeSubDomains")
-        self.send_header("Content-Security-Policy", "default-src 'self' 'unsafe-inline'; img-src 'self' data:; connect-src 'self'; frame-ancestors 'none';")
+        self.send_header("Content-Security-Policy", "default-src 'self' 'unsafe-inline'; img-src 'self' data:; connect-src 'self' https://api.github.com; frame-ancestors 'none';")
         self.end_headers()
         self.wfile.write(payload)
 
@@ -3094,7 +3094,7 @@ ADMIN_DASHBOARD_HTML = """<!DOCTYPE html>
           <h1>Serpent Studio <span class="badge">Yönetim ve Telemetri</span></h1>
           <div style="margin-top: 4px; display: flex; align-items: center; gap: 8px;">
             <span class="status-pill"><span class="pulse-dot"></span> Canlı Bulut (Render + Neon PostgreSQL)</span>
-            <span class="badge" style="background: rgba(2, 132, 199, 0.10); color: #0369A1; border: 1px solid rgba(2, 132, 199, 0.30);">__CURRENT_SERVER_VERSION__</span>
+            <span class="badge" style="background: rgba(2, 132, 199, 0.10); color: #0369A1; border: 1px solid rgba(2, 132, 199, 0.30);">Sunucu: __CURRENT_SERVER_VERSION__</span>
           </div>
         </div>
       </div>
@@ -3630,7 +3630,33 @@ ADMIN_DASHBOARD_HTML = """<!DOCTYPE html>
   </div>
 
   <script>
-    const currentServerVersion = '__CURRENT_SERVER_VERSION__';
+    let latestDesktopVersion = '';
+    let desktopVersionLookup = null;
+    const desktopVersionPattern = /^v[0-9]+(?:\.[0-9]+){3}$/;
+
+    function loadLatestDesktopVersion() {
+      if (desktopVersionLookup) return;
+      desktopVersionLookup = fetch('https://api.github.com/repos/bkbariskucuk/serpent-studio/releases/latest', {
+        credentials: 'omit',
+        referrerPolicy: 'no-referrer',
+        signal: AbortSignal.timeout(8000),
+      }).then(response => {
+        if (!response.ok) throw new Error('Release lookup failed');
+        return response.json();
+      }).then(release => {
+        const tag = String(release.tag_name || '').trim();
+        if (!desktopVersionPattern.test(tag) || release.draft || release.prerelease) {
+          throw new Error('Invalid desktop release');
+        }
+        latestDesktopVersion = tag;
+      }).catch(() => {
+        latestDesktopVersion = '';
+      }).finally(() => {
+        desktopVersionLookup = null;
+        filterUsers();
+        renderVersionDistribution();
+      });
+    }
     const appStorage = (typeof sessionStorage !== 'undefined') ? sessionStorage : {
       getItem: function() { return null; },
       setItem: function() {},
@@ -3933,12 +3959,13 @@ ADMIN_DASHBOARD_HTML = """<!DOCTYPE html>
         verBadge.style.fontFamily = 'monospace';
         if (u.client_version) {
           verBadge.textContent = u.client_version;
-          const isLatest = currentServerVersion && (u.client_version === currentServerVersion || u.client_version.startsWith(currentServerVersion.split('.').slice(0, 3).join('.')));
+          const isLatest = latestDesktopVersion === u.client_version;
+          const isDesktop = desktopVersionPattern.test(u.client_version);
           if (isLatest) {
             verBadge.style.backgroundColor = 'rgba(2, 132, 199, 0.10)';
             verBadge.style.color = '#0369A1';
             verBadge.style.border = '1px solid rgba(2, 132, 199, 0.30)';
-          } else {
+          } else if (latestDesktopVersion && isDesktop) {
             verBadge.style.backgroundColor = 'rgba(217, 119, 6, 0.12)';
             verBadge.style.color = '#B45309';
             verBadge.style.border = '1px solid rgba(217, 119, 6, 0.34)';
@@ -4520,6 +4547,7 @@ ADMIN_DASHBOARD_HTML = """<!DOCTYPE html>
     }
 
     function loadAll() {
+      loadLatestDesktopVersion();
       loadSystemStatus();
       loadUsers();
       loadErrors();
@@ -4532,13 +4560,16 @@ ADMIN_DASHBOARD_HTML = """<!DOCTYPE html>
       if (!container) return;
       while (container.firstChild) container.removeChild(container.firstChild);
       const summary = document.getElementById('versionSummaryBadge');
-      const currentPrefix = currentServerVersion ? currentServerVersion.split('.').slice(0, 3).join('.') : '';
-      const counts = {};
+      let desktopCount = 0;
+      const counts = Object.create(null);
       let latestCount = 0;
       usersCache.forEach(u => {
         const v = String(u.client_version || '').trim() || 'Bilinmiyor';
         counts[v] = (counts[v] || 0) + 1;
-        if (v !== 'Bilinmiyor' && currentPrefix && v.indexOf(currentPrefix) === 0) latestCount += 1;
+        if (desktopVersionPattern.test(v)) {
+          desktopCount += 1;
+          if (v === latestDesktopVersion) latestCount += 1;
+        }
       });
       const entries = Object.entries(counts).sort((a, b) => b[1] - a[1]);
       if (!entries.length) {
@@ -4546,7 +4577,9 @@ ADMIN_DASHBOARD_HTML = """<!DOCTYPE html>
         empty.style.cssText = 'font-size: 12px; color: var(--text-muted); padding: 4px 0;';
         empty.textContent = 'Henüz istemci sürümü bildirilmedi.';
         container.appendChild(empty);
-        if (summary) summary.textContent = '-';
+        if (summary) summary.textContent = latestDesktopVersion
+          ? 'Güncel (' + latestDesktopVersion + '): 0 / 0'
+          : 'Masaüstü sürümü bildirilmedi';
         return;
       }
       const maxCount = entries[0][1];
@@ -4562,8 +4595,8 @@ ADMIN_DASHBOARD_HTML = """<!DOCTYPE html>
         track.className = 'vbar-track';
         const fill = document.createElement('div');
         fill.className = 'vbar-fill';
-        const isUnknown = (version === 'Bilinmiyor');
-        const isLatest = !isUnknown && currentPrefix && version.indexOf(currentPrefix) === 0;
+        const isUnknown = !latestDesktopVersion || !desktopVersionPattern.test(version);
+        const isLatest = version === latestDesktopVersion;
         fill.style.width = Math.max(6, Math.round((count / maxCount) * 100)) + '%';
         fill.style.background = isUnknown
           ? 'linear-gradient(90deg, #94A3B8, #CBD5E1)'
@@ -4575,7 +4608,11 @@ ADMIN_DASHBOARD_HTML = """<!DOCTYPE html>
         row.appendChild(label); row.appendChild(track); row.appendChild(countLabel);
         container.appendChild(row);
       });
-      if (summary) summary.textContent = 'Güncel: ' + latestCount + ' / ' + usersCache.length;
+      if (summary) {
+        summary.textContent = latestDesktopVersion
+          ? 'Güncel (' + latestDesktopVersion + '): ' + latestCount + ' / ' + desktopCount
+          : (desktopVersionLookup ? 'Masaüstü sürümü sorgulanıyor…' : 'Son masaüstü sürümü alınamadı');
+      }
     }
 
     function csvEscape(value) {
