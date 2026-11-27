@@ -1,8 +1,8 @@
-Fissionfield v1.4.79.94
+# Fissionfield v1.4.80.95
 
-- New Fissionfield name, icon and startup screen.
-- Input Preview shows readable filenames and gives the picker its own row in narrow panels. Model toolbar icons and text follow the active theme.
-- PPF presentation opens the selected result, supports pin-level inspection where available and explains missing fuel-map data in the metric picker.
-- Serpent run archives include generated geometry PNGs. Workspace file properties show file details and metadata.
+- **Moderation sweep** runs from Automation. Compare pitch or moderator-to-fuel volume ratio in full-core, reflective-assembly and periodic-lattice studies. Analysis shows measured points, uncertainty, interpolation and recorded trial conditions.
+- **Moderator temperature coefficient (MTC)** runs nominal and hot Serpent branches in one invocation per trial. The chart and MTC share the verified nominal result. If the hot branch fails, the verified nominal point remains available.
+- **Analysis charts and tables** include optional p/f overlays, factor notation and measurement details. The tables expand and collapse, and chart transitions respect the reduced-motion setting.
+- **Workspace** scrolls truncated filenames on hover.
 
-Linux x86_64. Download Fissionfield.AppImage, make it executable and open it.
+Linux x86_64 · GLIBC 2.31 baseline. Make `Fissionfield.AppImage` executable and open it. Simulation requires a separate Serpent installation.
